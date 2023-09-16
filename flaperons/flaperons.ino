@@ -1,6 +1,6 @@
 #include <Servo.h>
 
-#define DBUG
+//#define DBUG
 #define SwitchPin         5
 #define AileronInPin      10
 #define AileronMasterOut  11
@@ -23,7 +23,9 @@ enum SWITCH_MODE {
 };
 
 int limit_duty_cycle(int duty_cycle) {
-  
+  if (duty_cycle > 2040) return 2040;
+  if (duty_cycle < 915)  return 915;
+  return duty_cycle;
 }
 
 SWITCH_MODE get_switch_mode(int duty_cycle) {
@@ -54,19 +56,19 @@ void loop() {
 
   switch(md) {
     case S_LOW:
-      flaps_srv.writeMicroseconds(FlapDeflection);
-      aileron_master_srv.writeMicroseconds(a_in + AileronDeflection);
-      aileron_slave_srv.writeMicroseconds(a_in - AileronDeflection);
+      flaps_srv.writeMicroseconds(limit_duty_cycle(FlapDeflection));
+      aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in + AileronDeflection));
+      aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in - AileronDeflection));
       break;
     case S_MED:
-      flaps_srv.writeMicroseconds(FlapDeflection);
-      aileron_master_srv.writeMicroseconds(a_in);
-      aileron_slave_srv.writeMicroseconds(a_in);
+      flaps_srv.writeMicroseconds(limit_duty_cycle(FlapDeflection));
+      aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in));
+      aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in));
       break;
     case S_HI:
       flaps_srv.writeMicroseconds(1900);
-      aileron_master_srv.writeMicroseconds(a_in);
-      aileron_slave_srv.writeMicroseconds(a_in);
+      aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in));
+      aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in));
       break;
   }
 }
