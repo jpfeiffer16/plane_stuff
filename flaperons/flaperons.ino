@@ -11,6 +11,8 @@
 Servo aileron_master_srv;
 Servo aileron_slave_srv;
 Servo flaps_srv;
+int peaks;                // keeps track of switch flips
+SWITCH_MODE cur_mode;
 
 // 2040 - top
 
@@ -49,6 +51,9 @@ void setup() {
 void loop() {
   int s_in = pulseIn(SwitchPin, HIGH);
   SWITCH_MODE md = get_switch_mode(s_in);
+  if (md != cur_mode) {
+    // TODO: toggle
+  }
   int a_in = pulseIn(AileronInPin, HIGH);
 #ifdef DBUG
   Serial.println(a_in);
