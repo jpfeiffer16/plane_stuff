@@ -7,22 +7,35 @@
 #define AileronSlaveOut   12
 #define FlapsOut          9
 #define FlapDeflection    800
-#define AileronDeflection 450
-Servo aileron_master_srv;
-Servo aileron_slave_srv;
-Servo flaps_srv;
-int peaks;                // keeps track of switch flips
-SWITCH_MODE cur_mode;
+#define AileronDeflection 200
 
-// 2040 - top
+enum MODE {
+  S_FLY = 0,
+  S_SET = 1
+};
 
-// 915 - bottom
-
-enum SWITCH_MODE {
+enum SWITCH_POS {
   S_HI = 2,
   S_MED = 1,
   S_LOW = 0
 };
+
+Servo aileron_master_srv;
+Servo aileron_slave_srv;
+Servo flaps_srv;
+int toggles[3] = {
+  0, 0, 0                // keeps track of switch flips
+};
+SWITCH_POS cur_pos        = S_HI;
+MODE       cur_mode       = S_FLY;
+int        aileron_offset = AileronDeflection;
+
+// 2040  - top
+// 562.5 - center
+// 915   - bottom
+
+
+
 
 int limit_duty_cycle(int duty_cycle) {
   if (duty_cycle > 2040) return 2040;
@@ -30,7 +43,7 @@ int limit_duty_cycle(int duty_cycle) {
   return duty_cycle;
 }
 
-SWITCH_MODE get_switch_mode(int duty_cycle) {
+SWITCH_POS get_switch_pos(int duty_cycle) {
   if (duty_cycle > 1800 && duty_cycle < 2200) return S_HI;
   if (duty_cycle > 1300 && duty_cycle < 1700) return S_MED;
   if (duty_cycle > 700 && duty_cycle < 1200) return S_LOW;
@@ -49,31 +62,61 @@ void setup() {
 }
 
 void loop() {
-  int s_in = pulseIn(SwitchPin, HIGH);
-  SWITCH_MODE md = get_switch_mode(s_in);
-  if (md != cur_mode) {
-    // TODO: toggle
-  }
-  int a_in = pulseIn(AileronInPin, HIGH);
+  if (cur_mode == S_FLY) {
+    int s_in = pulseIn(SwitchPin, HIGH);
+    SWITCH_POS md = get_switch_pos(s_in);
+    if (md != cur_pos) {
 #ifdef DBUG
-  Serial.println(a_in);
+      Serial.println("Toggle");
 #endif
-
-  switch(md) {
-    case S_LOW:
-      flaps_srv.writeMicroseconds(limit_duty_cycle(FlapDeflection));
-      aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in + AileronDeflection));
-      aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in - AileronDeflection));
-      break;
-    case S_MED:
-      flaps_srv.writeMicroseconds(limit_duty_cycle(FlapDeflection));
-      aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in));
-      aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in));
-      break;
-    case S_HI:
-      flaps_srv.writeMicroseconds(1900);
-      aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in));
-      aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in));
-      break;
+      cur_pos=md;
+      toggles[2] = toggles[1];
+      toggles[1] = toggles[0];
+      toggles[0] = millis();
+      if ( (toggles[2] != 0 && toggles[1] != 0 && toggles[0] != 0)
+        && (toggles[0] - toggles[2] < 300)) {
+        toggles[0] = 0;
+        toggles[1] = 0;
+        toggles[2] = 0;
+        cur_mode = S_SET;
+      }
+    }
+    int a_in = pulseIn(AileronInPin, HIGH);
+#ifdef DBUG
+    Serial.println(a_in);
+#endif
+  
+    switch(md) {
+      case S_LOW:
+        flaps_srv.writeMicroseconds(limit_duty_cycle(FlapDeflection));
+        aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in + aileron_offset));
+        aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in - aileron_offset));
+        break;
+      case S_MED:
+        flaps_srv.writeMicroseconds(limit_duty_cycle(FlapDeflection));
+        aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in));
+        aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in));
+        break;
+      case S_HI:
+        flaps_srv.writeMicroseconds(1900);
+        aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in));
+        aileron_slave_srv.writeMicroseconds(limit_duty_cycle(a_in));
+        break;
+    }
+  } else if (cur_mode == S_SET) {
+    int s_in = pulseIn(SwitchPin, HIGH);
+    SWITCH_POS md = get_switch_pos(s_in);
+    int a_in = pulseIn(AileronInPin, HIGH);
+    if (md == S_LOW) {
+      cur_mode = S_FLY;
+      aileron_offset = a_in - 1482;
+      return;
+    }
+#ifdef DBUG
+    Serial.println(a_in);
+#endif
+    // 1482 - centered
+    aileron_master_srv.writeMicroseconds(limit_duty_cycle(a_in));
+    aileron_slave_srv.writeMicroseconds(limit_duty_cycle(1482 + (1482 - a_in)));
   }
 }
