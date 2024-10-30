@@ -23,7 +23,7 @@ enum SWITCH_POS {
 Servo aileron_master_srv;
 Servo aileron_slave_srv;
 Servo flaps_srv;
-int toggles[3] = {
+unsigned long toggles[3] = {
   0, 0, 0                // keeps track of switch flips
 };
 SWITCH_POS cur_pos        = S_HI;
@@ -68,7 +68,9 @@ void loop() {
     if (md != cur_pos) {
 #ifdef DBUG
       Serial.println("Toggle");
+      Serial.println(String(toggles[2]) +"," + String(toggles[1]) + "," + String(toggles[0]));
 #endif
+
       cur_pos=md;
       toggles[2] = toggles[1];
       toggles[1] = toggles[0];
